@@ -19,6 +19,14 @@ import queue
 import time
 from earthcare_downloader import EarthCareDownloader
 
+# Import baseline data
+try:
+    from aux_data import aux_dict_L1, aux_dict_L2
+except ImportError:
+    # Fallback if aux_data.py is not found
+    aux_dict_L1 = {}
+    aux_dict_L2 = {}
+
 
 class EarthCareDownloaderGUI:
     """
@@ -28,7 +36,7 @@ class EarthCareDownloaderGUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("EarthCARE Data Downloader")
-        self.root.geometry("800x700")
+        self.root.geometry("1200x600")  # Increased height to accommodate integrated log
         self.root.resizable(True, True)
         
         # Variables
@@ -38,7 +46,8 @@ class EarthCareDownloaderGUI:
         self.password = tk.StringVar()
         self.collection = tk.StringVar()
         self.baseline = tk.StringVar()
-        self.products_selected = tk.StringVar()
+        self.product_category = tk.StringVar()  # New variable for product category
+        self.selected_product = tk.StringVar()  # New variable for selected product
         self.orbit_column = tk.StringVar()
         self.override_files = tk.BooleanVar()
         self.verbose_mode = tk.BooleanVar()
@@ -49,6 +58,9 @@ class EarthCareDownloaderGUI:
         self.log_queue = queue.Queue()
         self.current_entry = 0
         self.total_entries = 0
+        
+        # Combine baseline dictionaries
+        self.all_baselines = {**aux_dict_L1, **aux_dict_L2}
         
         # Collections available
         self.collections = {
@@ -62,6 +74,24 @@ class EarthCareDownloaderGUI:
             'JAXA L2 Products (Cal/Val Users)': 'JAXAL2InstChecked',
             'JAXA L2 Products (Validated)': 'JAXAL2Validated',
             'JAXA L2 Products (Commissioning)': 'JAXAL2Products'
+        }
+        
+        # Product categories
+        self.product_categories = {
+            'ATLID Level 1B': ['ATL_NOM_1B', 'ATL_DCC_1B', 'ATL_CSC_1B', 'ATL_FSC_1B'],
+            'MSI Level 1B': ['MSI_NOM_1B', 'MSI_BBS_1B', 'MSI_SD1_1B', 'MSI_SD2_1B'],
+            'BBR Level 1B': ['BBR_NOM_1B', 'BBR_SNG_1B', 'BBR_SOL_1B', 'BBR_LIN_1B'],
+            'CPR Level 1B': ['CPR_NOM_1B'],
+            'MSI Level 1C': ['MSI_RGR_1C'],
+            'Auxiliary Level 1D': ['AUX_MET_1D', 'AUX_JSG_1D'],
+            'ATLID Level 2A': ['ATL_FM__2A', 'ATL_AER_2A', 'ATL_ICE_2A', 'ATL_TC__2A', 
+                              'ATL_EBD_2A', 'ATL_CTH_2A', 'ATL_ALD_2A'],
+            'MSI Level 2A': ['MSI_CM__2A', 'MSI_COP_2A', 'MSI_AOT_2A'],
+            'CPR Level 2A': ['CPR_FMR_2A', 'CPR_CD__2A', 'CPR_TC__2A', 'CPR_CLD_2A', 'CPR_APC_2A'],
+            'Level 2B Combined': ['AM__MO__2B', 'AM__CTH_2B', 'AM__ACD_2B', 'AC__TC__2B',
+                                 'BM__RAD_2B', 'BMA_FLX_2B', 'ACM_CAP_2B', 'ACM_COM_2B',
+                                 'ACM_RT__2B', 'ALL_DF__2B', 'ALL_3D__2B'],
+            'Orbit Data': ['MPL_ORBSCT', 'AUX_ORBPRE', 'AUX_ORBRES']
         }
         
         # Baselines available
@@ -97,7 +127,7 @@ class EarthCareDownloaderGUI:
     def create_widgets(self):
         """Create and arrange all GUI widgets."""
         
-        # Main frame with scrollbar
+        # Main frame 
         main_frame = ttk.Frame(self.root)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
@@ -106,21 +136,26 @@ class EarthCareDownloaderGUI:
                                font=('Arial', 16, 'bold'))
         title_label.pack(pady=(0, 20))
         
-        # Create notebook for tabs
-        self.notebook = ttk.Notebook(main_frame)
+        # Create main content frame with two columns
+        content_frame = ttk.Frame(main_frame)
+        content_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Left column for controls (fixed, no scroll)
+        left_frame = ttk.Frame(content_frame)
+        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, padx=(0, 10))
+        
+        # Create notebook for tabs in left frame
+        self.notebook = ttk.Notebook(left_frame)
         self.notebook.pack(fill=tk.BOTH, expand=True)
         
         # Configuration tab
         self.create_config_tab()
         
-        # Products tab
-        self.create_products_tab()
-        
         # Advanced tab
         self.create_advanced_tab()
         
         # Control buttons frame
-        control_frame = ttk.Frame(main_frame)
+        control_frame = ttk.Frame(left_frame)
         control_frame.pack(fill=tk.X, pady=(20, 0))
         
         # Download button
@@ -140,14 +175,13 @@ class EarthCareDownloaderGUI:
                               command=self.clear_form)
         clear_btn.pack(side=tk.LEFT, padx=(0, 10))
         
-        # Show/Hide Log button
-        self.toggle_log_btn = ttk.Button(control_frame, text="Show Log", 
-                                        command=self.toggle_log_window)
-        self.toggle_log_btn.pack(side=tk.RIGHT)
+        # Right column for status and log
+        right_frame = ttk.Frame(content_frame)
+        right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
         
-        # Status frame
-        status_frame = ttk.LabelFrame(main_frame, text="Status", padding=10)
-        status_frame.pack(fill=tk.X, pady=(20, 0))
+        # Status frame in right column
+        status_frame = ttk.LabelFrame(right_frame, text="Status", padding=10)
+        status_frame.pack(fill=tk.X, pady=(0, 10))
         
         # Status label
         self.status_label = ttk.Label(status_frame, text="Ready to download")
@@ -168,33 +202,61 @@ class EarthCareDownloaderGUI:
         self.file_progress = ttk.Progressbar(status_frame, mode='indeterminate')
         self.file_progress.pack(fill=tk.X, pady=(5, 0))
         
-        # Create log window (initially hidden)
-        self.create_log_window()
+        # Download Log frame (integrated in right column)
+        log_frame = ttk.LabelFrame(right_frame, text="Download Log", padding=10)
+        log_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        
+        # Log text widget with scrollbar
+        log_text_frame = ttk.Frame(log_frame)
+        log_text_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Text widget
+        self.log_text = tk.Text(log_text_frame, wrap=tk.WORD, height=15, width=50, 
+                               bg='#f8f9fa', font=('Consolas', 9))
+        log_scrollbar = ttk.Scrollbar(log_text_frame, orient=tk.VERTICAL, command=self.log_text.yview)
+        self.log_text.configure(yscrollcommand=log_scrollbar.set)
+        
+        self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        log_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Log control frame
+        log_control_frame = ttk.Frame(log_frame)
+        log_control_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        # Clear log button
+        clear_log_btn = ttk.Button(log_control_frame, text="Clear Log", 
+                                  command=self.clear_log)
+        clear_log_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Save log button
+        save_log_btn = ttk.Button(log_control_frame, text="Save Log", 
+                                 command=self.save_log)
+        save_log_btn.pack(side=tk.LEFT)
+        
+        # Auto-scroll checkbox
+        self.auto_scroll = tk.BooleanVar(value=True)
+        auto_scroll_check = ttk.Checkbutton(log_control_frame, text="Auto-scroll", 
+                                          variable=self.auto_scroll)
+        auto_scroll_check.pack(side=tk.RIGHT)
         
         # Start processing log messages
         self.process_log_queue()
+        
+        # Add initial welcome message to log
+        self.add_log_message("🌍 EarthCARE Data Downloader initialized and ready", 'info')
         
     def create_config_tab(self):
         """Create the configuration tab."""
         config_frame = ttk.Frame(self.notebook)
         self.notebook.add(config_frame, text="Configuration")
         
-        # Create scrollable frame
-        canvas = tk.Canvas(config_frame)
-        scrollbar = ttk.Scrollbar(config_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        # Direct frame without scrollbar (fixed content)
+        main_config_frame = ttk.Frame(config_frame)
+        main_config_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Credentials section
-        cred_frame = ttk.LabelFrame(scrollable_frame, text="OADS Credentials", padding=15)
-        cred_frame.pack(fill=tk.X, pady=(0, 15))
+        cred_frame = ttk.LabelFrame(main_config_frame, text="OADS Credentials", padding=10)
+        cred_frame.pack(fill=tk.X, pady=(0, 10))
         
         ttk.Label(cred_frame, text="Username:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
         username_entry = ttk.Entry(cred_frame, textvariable=self.username, width=40)
@@ -207,8 +269,8 @@ class EarthCareDownloaderGUI:
         cred_frame.columnconfigure(1, weight=1)
         
         # File selection section
-        file_frame = ttk.LabelFrame(scrollable_frame, text="File Selection", padding=15)
-        file_frame.pack(fill=tk.X, pady=(0, 15))
+        file_frame = ttk.LabelFrame(main_config_frame, text="File Selection", padding=10)
+        file_frame.pack(fill=tk.X, pady=(0, 10))
         
         # CSV file selection
         ttk.Label(file_frame, text="CSV File:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
@@ -234,88 +296,46 @@ class EarthCareDownloaderGUI:
         
         file_frame.columnconfigure(1, weight=1)
         
-        # Download options section
-        options_frame = ttk.LabelFrame(scrollable_frame, text="Download Options", padding=15)
-        options_frame.pack(fill=tk.X, pady=(0, 15))
+        # Product Selection section
+        product_frame = ttk.LabelFrame(main_config_frame, text="Product Selection", padding=10)
+        product_frame.pack(fill=tk.X, pady=(0, 10))
         
         # Collection selection
-        ttk.Label(options_frame, text="Collection:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
-        collection_combo = ttk.Combobox(options_frame, textvariable=self.collection,
-                                       values=list(self.collections.keys()),
-                                       state="readonly", width=50)
-        collection_combo.grid(row=0, column=1, sticky=tk.W+tk.E, pady=(0, 10))
-        collection_combo.bind('<<ComboboxSelected>>', self.on_collection_changed)
+        ttk.Label(product_frame, text="Collection:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
+        self.collection_combo = ttk.Combobox(product_frame, textvariable=self.collection,
+                                           values=list(self.collections.keys()), state="readonly", width=50)
+        self.collection_combo.grid(row=0, column=1, sticky=tk.W+tk.E, pady=(0, 10))
+        self.collection_combo.bind('<<ComboboxSelected>>', self.on_collection_changed)
+        
+        # Product Category selection
+        ttk.Label(product_frame, text="Product Category:").grid(row=1, column=0, sticky=tk.W, padx=(0, 10))
+        self.category_combo = ttk.Combobox(product_frame, textvariable=self.product_category,
+                                         state="readonly", width=50)
+        self.category_combo.grid(row=1, column=1, sticky=tk.W+tk.E, pady=(0, 10))
+        self.category_combo.bind('<<ComboboxSelected>>', self.on_category_changed)
+        
+        # Available Product selection
+        ttk.Label(product_frame, text="Available Product:").grid(row=2, column=0, sticky=tk.W, padx=(0, 10))
+        self.product_combo = ttk.Combobox(product_frame, textvariable=self.selected_product,
+                                        state="readonly", width=50)
+        self.product_combo.grid(row=2, column=1, sticky=tk.W+tk.E, pady=(0, 10))
+        self.product_combo.bind('<<ComboboxSelected>>', self.on_product_changed)
         
         # Baseline selection
-        ttk.Label(options_frame, text="Baseline:").grid(row=1, column=0, sticky=tk.W, padx=(0, 10))
-        baseline_combo = ttk.Combobox(options_frame, textvariable=self.baseline,
-                                     values=self.baselines, state="readonly", width=50)
-        baseline_combo.grid(row=1, column=1, sticky=tk.W+tk.E)
+        ttk.Label(product_frame, text="Baseline:").grid(row=3, column=0, sticky=tk.W, padx=(0, 10))
+        self.baseline_combo = ttk.Combobox(product_frame, textvariable=self.baseline,
+                                         state="readonly", width=50)
+        self.baseline_combo.grid(row=3, column=1, sticky=tk.W+tk.E)
         
-        options_frame.columnconfigure(1, weight=1)
+        product_frame.columnconfigure(1, weight=1)
         
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Set default values
+        self.collection.set('EarthCARE L1 Products (Cal/Val Users)')
+        self.override_files.set(False)
+        self.verbose_mode.set(False)
         
-    def create_products_tab(self):
-        """Create the products selection tab."""
-        products_frame = ttk.Frame(self.notebook)
-        self.notebook.add(products_frame, text="Products")
-        
-        # Instructions
-        instr_label = ttk.Label(products_frame, 
-                               text="Select the EarthCARE products you want to download:",
-                               font=('Arial', 10))
-        instr_label.pack(pady=(10, 15))
-        
-        # Create frame for product selection
-        selection_frame = ttk.Frame(products_frame)
-        selection_frame.pack(fill=tk.BOTH, expand=True, padx=15)
-        
-        # Left frame for categories
-        left_frame = ttk.Frame(selection_frame)
-        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
-        
-        ttk.Label(left_frame, text="Product Categories:", font=('Arial', 10, 'bold')).pack(anchor=tk.W)
-        
-        # Product categories listbox
-        self.categories_listbox = tk.Listbox(left_frame, height=15)
-        self.categories_listbox.pack(fill=tk.BOTH, expand=True, pady=(5, 10))
-        self.categories_listbox.bind('<<ListboxSelect>>', self.on_category_selected)
-        
-        # Populate categories
-        for category in self.products.keys():
-            self.categories_listbox.insert(tk.END, category)
-        
-        # Right frame for products
-        right_frame = ttk.Frame(selection_frame)
-        right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-        
-        ttk.Label(right_frame, text="Available Products:", font=('Arial', 10, 'bold')).pack(anchor=tk.W)
-        
-        # Products listbox with multiple selection
-        self.products_listbox = tk.Listbox(right_frame, selectmode=tk.MULTIPLE, height=15)
-        self.products_listbox.pack(fill=tk.BOTH, expand=True, pady=(5, 10))
-        
-        # Buttons for product selection
-        btn_frame = ttk.Frame(right_frame)
-        btn_frame.pack(fill=tk.X)
-        
-        select_all_btn = ttk.Button(btn_frame, text="Select All", 
-                                   command=self.select_all_products)
-        select_all_btn.pack(side=tk.LEFT, padx=(0, 5))
-        
-        clear_selection_btn = ttk.Button(btn_frame, text="Clear Selection", 
-                                        command=self.clear_product_selection)
-        clear_selection_btn.pack(side=tk.LEFT)
-        
-        # Selected products display
-        selected_frame = ttk.LabelFrame(products_frame, text="Selected Products", padding=10)
-        selected_frame.pack(fill=tk.X, padx=15, pady=(20, 0))
-        
-        self.selected_products_label = ttk.Label(selected_frame, text="No products selected", 
-                                                wraplength=700)
-        self.selected_products_label.pack(anchor=tk.W)
+        # Initialize product categories
+        self.on_collection_changed()
         
     def create_advanced_tab(self):
         """Create the advanced options tab."""
@@ -386,61 +406,7 @@ Baseline Information:
         
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-    
-    def create_log_window(self):
-        """Create the log window."""
-        self.log_window = tk.Toplevel(self.root)
-        self.log_window.title("Download Log")
-        self.log_window.geometry("800x400")
-        self.log_window.withdraw()  # Hide initially
         
-        # Make it stay on top but not modal
-        self.log_window.transient(self.root)
-        
-        # Log text widget with scrollbar
-        log_frame = ttk.Frame(self.log_window)
-        log_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # Text widget
-        self.log_text = tk.Text(log_frame, wrap=tk.WORD, height=20, width=80)
-        log_scrollbar = ttk.Scrollbar(log_frame, orient=tk.VERTICAL, command=self.log_text.yview)
-        self.log_text.configure(yscrollcommand=log_scrollbar.set)
-        
-        self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        log_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # Control frame
-        log_control_frame = ttk.Frame(self.log_window)
-        log_control_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
-        
-        # Clear log button
-        clear_log_btn = ttk.Button(log_control_frame, text="Clear Log", 
-                                  command=self.clear_log)
-        clear_log_btn.pack(side=tk.LEFT, padx=(0, 10))
-        
-        # Save log button
-        save_log_btn = ttk.Button(log_control_frame, text="Save Log", 
-                                 command=self.save_log)
-        save_log_btn.pack(side=tk.LEFT)
-        
-        # Close button
-        close_log_btn = ttk.Button(log_control_frame, text="Close", 
-                                  command=self.log_window.withdraw)
-        close_log_btn.pack(side=tk.RIGHT)
-        
-    def toggle_log_window(self):
-        """Toggle the log window visibility."""
-        if self.log_window.winfo_viewable():
-            self.log_window.withdraw()
-            self.toggle_log_btn.config(text="Show Log")
-        else:
-            self.log_window.deiconify()
-            self.toggle_log_btn.config(text="Hide Log")
-            # Position near main window
-            x = self.root.winfo_x() + self.root.winfo_width() + 10
-            y = self.root.winfo_y()
-            self.log_window.geometry(f"+{x}+{y}")
-    
     def add_log_message(self, message, level='info'):
         """Add a message to the log queue."""
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -474,8 +440,9 @@ Baseline Information:
                     end_index = tk.END
                     self.log_text.tag_add("success", f"{int(start_index.split('.')[0])-1}.0", end_index)
                 
-                # Auto-scroll to bottom
-                self.log_text.see(tk.END)
+                # Auto-scroll to bottom if enabled
+                if hasattr(self, 'auto_scroll') and self.auto_scroll.get():
+                    self.log_text.see(tk.END)
                 
         except queue.Empty:
             pass
@@ -504,43 +471,55 @@ Baseline Information:
         
     def on_collection_changed(self, event=None):
         """Handle collection combobox selection change."""
-        selected = event.widget.get()
-        # Update collection variable with the actual collection ID
-        if selected in self.collections:
-            self.collection.set(self.collections[selected])
-    
-    def on_category_selected(self, event=None):
-        """Handle category selection in listbox."""
-        selection = self.categories_listbox.curselection()
-        if selection:
-            category = self.categories_listbox.get(selection[0])
-            # Update products listbox
-            self.products_listbox.delete(0, tk.END)
-            for product in self.products[category]:
-                self.products_listbox.insert(tk.END, product)
-        self.update_selected_products()
-    
-    def select_all_products(self):
-        """Select all products in the current category."""
-        self.products_listbox.select_set(0, tk.END)
-        self.update_selected_products()
-    
-    def clear_product_selection(self):
-        """Clear all product selections."""
-        self.products_listbox.selection_clear(0, tk.END)
-        self.update_selected_products()
-    
-    def update_selected_products(self):
-        """Update the selected products display."""
-        selected_indices = self.products_listbox.curselection()
-        selected_products = [self.products_listbox.get(i) for i in selected_indices]
+        # Update product categories based on collection
+        self.category_combo.set('')
+        self.product_combo.set('')
+        self.baseline_combo.set('')
+        self.selected_product.set('')
+        self.product_category.set('')
+        self.baseline.set('')
         
-        if selected_products:
-            self.products_selected.set(','.join(selected_products))
-            self.selected_products_label.config(text=f"Selected: {', '.join(selected_products)}")
-        else:
-            self.products_selected.set('')
-            self.selected_products_label.config(text="No products selected")
+        # Set available categories (for now, show all)
+        self.category_combo['values'] = list(self.product_categories.keys())
+    
+    def on_category_changed(self, event=None):
+        """Handle product category selection change."""
+        category = self.product_category.get()
+        if category and category in self.product_categories:
+            # Update available products
+            self.product_combo['values'] = self.product_categories[category]
+            self.product_combo.set('')
+            self.baseline_combo.set('')
+            self.selected_product.set('')
+            self.baseline.set('')
+    
+    def on_product_changed(self, event=None):
+        """Handle product selection change."""
+        product = self.selected_product.get()
+        if product:
+            # Get available baselines for this product
+            available_baselines = ['Auto-detect']
+            if product in self.all_baselines:
+                available_baselines.extend(self.all_baselines[product])
+            
+            self.baseline_combo['values'] = available_baselines
+            self.baseline.set('Auto-detect')
+    
+    def get_selected_products(self):
+        """Get the currently selected product as a list (for compatibility)."""
+        if self.selected_product.get():
+            return [self.selected_product.get()]
+        return []
+        # """Update the selected products display."""
+        # selected_indices = self.products_listbox.curselection()
+        # selected_products = [self.products_listbox.get(i) for i in selected_indices]
+        
+        # if selected_products:
+        #     self.products_selected.set(','.join(selected_products))
+        #     self.selected_products_label.config(text=f"Selected: {', '.join(selected_products)}")
+        # else:
+        #     self.products_selected.set('')
+        #     self.selected_products_label.config(text="No products selected")
     
     def browse_csv_file(self):
         """Open file dialog to select CSV file."""
@@ -579,8 +558,8 @@ Baseline Information:
         if not self.download_directory.get().strip():
             errors.append("Download directory must be selected")
         
-        if not self.products_selected.get().strip():
-            errors.append("At least one product must be selected")
+        if not self.selected_product.get().strip():
+            errors.append("Product must be selected")
         
         return errors
     
@@ -606,10 +585,6 @@ Baseline Information:
         self.progress_info_label.config(text="")
         self.file_progress_label.config(text="")
         
-        # Show log window if not visible
-        if not self.log_window.winfo_viewable():
-            self.toggle_log_window()
-        
         self.add_log_message("🚀 Starting EarthCARE download process...")
         
         # Start download in separate thread
@@ -623,10 +598,14 @@ Baseline Information:
             # Create downloader instance
             baseline = self.baseline.get() if self.baseline.get() != 'Auto-detect' else None
             
+            # Get collection ID from the collections dictionary
+            collection_name = self.collection.get()
+            collection_id = self.collections.get(collection_name, collection_name)
+            
             self.downloader = EarthCareDownloaderGUI_Custom(
                 username=self.username.get().strip(),
                 password=self.password.get().strip(),
-                collection=self.collection.get(),
+                collection=collection_id,
                 baseline=baseline,
                 verbose=False,  # Keep False for clean terminal output
                 gui_callback=self.add_log_message,
@@ -636,9 +615,9 @@ Baseline Information:
             # Update status
             self.add_log_message("✅ Downloader initialized successfully")
             
-            # Prepare products list
-            products = [p.strip() for p in self.products_selected.get().split(',') if p.strip()]
-            self.add_log_message(f"📦 Products to download: {', '.join(products)}")
+            # Prepare products list (single product now)
+            products = [self.selected_product.get()]
+            self.add_log_message(f"📦 Product to download: {products[0]}")
             
             # Prepare orbit column
             orbit_col = self.orbit_column.get().strip() if self.orbit_column.get().strip() else None
@@ -745,16 +724,17 @@ Check the download directory for detailed logs."""
         self.username.set('')
         self.password.set('')
         self.orbit_column.set('')
-        self.products_selected.set('')
+        self.selected_product.set('')
+        self.product_category.set('')
         self.override_files.set(False)
         self.verbose_mode.set(False)
-        self.collection.set('EarthCAREL1InstChecked')
+        self.collection.set('EarthCARE L1 Products (Cal/Val Users)')
         self.baseline.set('Auto-detect')
         
-        # Clear product selections
-        self.products_listbox.selection_clear(0, tk.END)
-        self.categories_listbox.selection_clear(0, tk.END)
-        self.update_selected_products()
+        # Clear combo selections
+        self.category_combo.set('')
+        self.product_combo.set('')
+        self.baseline_combo.set('')
         
         self.status_label.config(text="Ready to download")
     
