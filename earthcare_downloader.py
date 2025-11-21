@@ -882,53 +882,26 @@ class EarthCareDownloader:
         print("=" * 60)
 
 
-# Example usage and testing
+# Example usage
 if __name__ == "__main__":
-    import os
-    
-    # Get credentials from environment variables (recommended for security)
-    username = os.getenv('OADS_USERNAME')
-    password = os.getenv('OADS_PASSWORD')
-    
-    if not username or not password:
-        print("Please set OADS_USERNAME and OADS_PASSWORD environment variables")
-        print("Example:")
-        print("  export OADS_USERNAME='your_username'")
-        print("  export OADS_PASSWORD='your_password'")
-        exit(1)
-    
     # Example of how to use the class
     downloader = EarthCareDownloader(
-        username=username,
-        password=password,
+        username="rodrigueznavarro@ugr.es",
+        password="Onrona1997*", 
         collection='EarthCAREL2InstChecked',
         baseline='BA',
-        verbose=True  # Set to False for minimal output
+        verbose=False  # Set to True for detailed output
     )
     
-    # Example paths - update these for your actual data
-    csv_file = "examples/sample_data.csv"  # CSV with datetime columns (auto-detected)
-    products = ['ATL_NOM_1B']  # List of products to download
-    download_dir = f"./downloads/{products[0]}"
-    
-    print(f"Testing download with sample data...")
-    print(f"CSV file: {csv_file}")
-    print(f"Products: {products}")
-    print(f"Download directory: {download_dir}")
+    # Download products based on CSV file
+    csv_file = r"C:\Users\usuario\Downloads\test_earthcare.csv"  # CSV with datetime columns (auto-detected)
+    products = ['AALD']  # List of products to download
+    download_dir = r"D:\EarthCARE\ESA_files\prueba" + "/" + products[0]
     
     # Run the download
-    try:
-        summary = downloader.download_from_csv(
-            csv_file_path=csv_file,
-            products=products,
-            download_directory=download_dir,
-            override=False
-        )
-        print("\nDownload completed successfully!")
-        print(f"Summary: {summary}")
-        
-    except FileNotFoundError:
-        print(f"Error: CSV file '{csv_file}' not found.")
-        print("Please create a CSV file with datetime data or use the examples.")
-    except Exception as e:
-        print(f"Error during download: {e}")
+    summary = downloader.download_from_csv(
+        csv_file_path=csv_file,
+        products=products,
+        download_directory=download_dir,
+        override=False
+    )

@@ -1020,18 +1020,6 @@ class EarthCareDownloaderGUI_Custom(EarthCareDownloader):
         return datetime.now()
 
 
-def main():
-    """Main function to run the GUI application."""
-    try:
-        app = EarthCareDownloaderGUI()
-        app.run()
-    except ImportError as e:
-        print("Error: Missing required dependencies")
-        print(f"Details: {e}")
-        print("Please install dependencies with: pip install -r requirements_gui.txt")
-    except Exception as e:
-        print(f"Error starting application: {e}")
-
-
 if __name__ == "__main__":
-    main()
+    app = EarthCareDownloaderGUI()
+    app.run()
