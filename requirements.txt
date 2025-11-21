@@ -1,0 +1,24 @@
+# Essential requirements for EarthCARE Downloader and GUI
+# Updated 2025-11-20
+
+# Original project dependencies
+scikit-learn
+numpy
+pandas
+pyproj
+matplotlib
+h5py
+xarray
+cartopy
+basemap
+scipy
+statsmodels
+
+# Additional dependencies for EarthCARE Downloader
+requests>=2.28.0
+beautifulsoup4>=4.11.0
+lxml>=4.9.0
+tqdm>=4.64.0
+
+# Optional: For better performance and error handling
+chardet>=5.0.0

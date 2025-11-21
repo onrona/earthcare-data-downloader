@@ -1,0 +1,44 @@
+# Requirements for EarthCARE Downloader GUI and earthcare_downloader.py
+# Generated on 2025-11-20
+
+# Core GUI framework
+tkinter
+# Note: tkinter usually comes with Python standard library
+
+# HTTP requests and web scraping
+requests>=2.28.0
+beautifulsoup4>=4.11.0
+lxml>=4.9.0
+
+# Data handling and CSV processing
+pandas>=1.5.0
+numpy>=1.21.0
+
+# Progress bars and terminal output
+tqdm>=4.64.0
+
+# Date and time handling
+# datetime is part of Python standard library
+
+# File and path operations
+pathlib
+# Note: pathlib is part of Python standard library since Python 3.4
+
+# Threading for GUI
+threading
+queue
+# Note: both threading and queue are part of Python standard library
+
+# Optional: For better CSV detection and handling
+chardet>=5.0.0
+
+# Optional: For improved error handling and logging
+colorama>=0.4.5
+
+# Development and testing (optional)
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Optional: For code formatting and linting
+black>=22.0.0
+flake8>=5.0.0
