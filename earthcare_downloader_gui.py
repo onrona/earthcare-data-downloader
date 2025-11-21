@@ -510,17 +510,7 @@ Baseline Information:
         if self.selected_product.get():
             return [self.selected_product.get()]
         return []
-        # """Update the selected products display."""
-        # selected_indices = self.products_listbox.curselection()
-        # selected_products = [self.products_listbox.get(i) for i in selected_indices]
-        
-        # if selected_products:
-        #     self.products_selected.set(','.join(selected_products))
-        #     self.selected_products_label.config(text=f"Selected: {', '.join(selected_products)}")
-        # else:
-        #     self.products_selected.set('')
-        #     self.selected_products_label.config(text="No products selected")
-    
+
     def browse_csv_file(self):
         """Open file dialog to select CSV file."""
         file_path = filedialog.askopenfilename(
