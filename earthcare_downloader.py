@@ -884,10 +884,25 @@ class EarthCareDownloader:
 
 # Example usage
 if __name__ == "__main__":
+    import getpass
+    
+    print("=== EarthCARE Data Downloader ===")
+    print("Por favor, ingresa tus credenciales de OADS:")
+    
+    # Solicitar credenciales al usuario
+    username = input("Usuario OADS: ")
+    password = getpass.getpass("Contraseña OADS: ")  # getpass oculta la contraseña al escribir
+    
+    if not username or not password:
+        print("Error: Usuario y contraseña son requeridos.")
+        exit(1)
+    
+    print(f"Conectando como: {username}")
+    
     # Example of how to use the class
     downloader = EarthCareDownloader(
-        username="rodrigueznavarro@ugr.es",
-        password="Onrona1997*", 
+        username=username,
+        password=password, 
         collection='EarthCAREL2InstChecked',
         baseline='BA',
         verbose=False  # Set to True for detailed output
@@ -898,10 +913,19 @@ if __name__ == "__main__":
     products = ['AALD']  # List of products to download
     download_dir = r"D:\EarthCARE\ESA_files\prueba" + "/" + products[0]
     
+    print(f"Archivo CSV: {csv_file}")
+    print(f"Productos a descargar: {products}")
+    print(f"Directorio de descarga: {download_dir}")
+    print("\nIniciando descarga...")
+    
     # Run the download
-    summary = downloader.download_from_csv(
-        csv_file_path=csv_file,
-        products=products,
-        download_directory=download_dir,
-        override=False
-    )
+    try:
+        summary = downloader.download_from_csv(
+            csv_file_path=csv_file,
+            products=products,
+            download_directory=download_dir,
+            override=False
+        )
+        print("\n¡Descarga completada exitosamente!")
+    except Exception as e:
+        print(f"\nError durante la descarga: {e}")
