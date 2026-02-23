@@ -13,9 +13,7 @@ Description:
 import streamlit as st
 import pandas as pd
 import os
-import io
 from datetime import datetime
-from pathlib import Path
 import tempfile
 import shutil
 
@@ -31,40 +29,219 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
-st.markdown("""
-    <style>
-    .main {
-        background-color: #f8f9fa;
+# Dark mode CSS - Professional styling inspired by modern web design
+dark_css = """
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
     }
+    
+    :root {
+        --primary-dark: #0f1419;
+        --secondary-dark: #1a2332;
+        --tertiary-dark: #252d3d;
+        --accent-blue: #00b4d8;
+        --accent-purple: #7209b7;
+        --accent-pink: #f72585;
+        --text-primary: #e0e7ff;
+        --text-secondary: #a0aec0;
+        --border-color: #2d3748;
+    }
+    
+    body, [data-testid="stAppViewContainer"] {
+        background: linear-gradient(135deg, #0f1419 0%, #1a2332 100%) !important;
+        color: var(--text-primary) !important;
+    }
+    
+    [data-testid="stMainBlockContainer"] {
+        background-color: transparent !important;
+        color: var(--text-primary) !important;
+    }
+    
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1a2332 0%, #252d3d 100%) !important;
+        border-right: 1px solid var(--border-color) !important;
+    }
+    
+    [data-testid="stSidebarContent"] {
+        background: transparent !important;
+    }
+    
+    .stMarkdown {
+        color: var(--text-primary) !important;
+    }
+    
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+        color: #00d9ff !important;
+        text-shadow: 0 0 10px rgba(0, 217, 255, 0.3) !important;
+    }
+    
+    .stMarkdown p {
+        color: var(--text-primary) !important;
+    }
+    
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: transparent !important;
+        border-bottom: 2px solid var(--border-color) !important;
+    }
+    
+    .stTabs [data-baseweb="tab-list"] button {
+        background-color: transparent !important;
+        color: var(--text-secondary) !important;
+        border: none !important;
+    }
+    
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+        color: #00d9ff !important;
+        border-bottom: 3px solid #00d9ff !important;
+        background: rgba(0, 217, 255, 0.1) !important;
+    }
+    
     .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
         font-size: 1.1em;
         font-weight: bold;
+        color: inherit !important;
     }
-    </style>
-""", unsafe_allow_html=True)
+    
+    /* Input fields */
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div > select,
+    textarea {
+        background-color: #252d3d !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+        padding: 10px !important;
+    }
+    
+    .stTextInput > div > div > input:focus,
+    .stSelectbox > div > div > select:focus,
+    textarea:focus {
+        border-color: #00d9ff !important;
+        box-shadow: 0 0 10px rgba(0, 217, 255, 0.2) !important;
+    }
+    
+    /* Buttons */
+    .stButton > button {
+        background: linear-gradient(135deg, #00b4d8 0%, #00d9ff 100%) !important;
+        color: #0f1419 !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+        padding: 12px 24px !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 10px 30px rgba(0, 217, 255, 0.3) !important;
+    }
+    
+    /* Containers and expanders */
+    [data-testid="stExpander"] {
+        background-color: #1a2332 !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+    }
+    
+    [data-testid="stExpander"] > div > button {
+        background-color: transparent !important;
+        color: var(--text-primary) !important;
+    }
+    
+    [data-testid="stExpander"] > div > button:hover {
+        background-color: rgba(0, 217, 255, 0.1) !important;
+    }
+    
+    /* Info/Error/Warning messages */
+    .stInfo, [data-testid="stStatusWidget"] {
+        background-color: rgba(0, 180, 216, 0.15) !important;
+        border-left: 4px solid #00d9ff !important;
+        color: var(--text-primary) !important;
+        border-radius: 8px !important;
+    }
+    
+    .stWarning, [data-testid="stWarning"] {
+        background-color: rgba(255, 184, 28, 0.15) !important;
+        border-left: 4px solid #ffb81c !important;
+        color: var(--text-primary) !important;
+        border-radius: 8px !important;
+    }
+    
+    .stError, [data-testid="stError"] {
+        background-color: rgba(247, 37, 133, 0.15) !important;
+        border-left: 4px solid #f72585 !important;
+        color: var(--text-primary) !important;
+        border-radius: 8px !important;
+    }
+    
+    .stSuccess, [data-testid="stSuccess"] {
+        background-color: rgba(0, 217, 255, 0.15) !important;
+        border-left: 4px solid #00d9ff !important;
+        color: var(--text-primary) !important;
+        border-radius: 8px !important;
+    }
+    
+    /* Data frames */
+    [data-testid="dataframeContainer"] {
+        background-color: #1a2332 !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+    }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+        width: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #0f1419;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 5px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #00d9ff;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .stMarkdown h1 {
+            font-size: 1.8em !important;
+        }
+    }
+</style>
+"""
+
+st.markdown(dark_css, unsafe_allow_html=True)
 
 # Title and description
 st.markdown("# 🌍 EarthCARE Data Downloader")
 st.markdown("""
-Descarga productos de datos EarthCARE desde OADS de forma fácil y rápida.
+Download EarthCARE data products from OADS easily and quickly.
 """)
 
 # ============================================================================
 # SIDEBAR - CREDENTIALS AND CONFIGURATION
 # ============================================================================
-st.sidebar.markdown("## 🔐 Credenciales OADS")
+
+st.sidebar.markdown("## 🔐 OADS Credentials")
 
 username = st.sidebar.text_input(
-    "Usuario OADS:",
-    placeholder="Tu usuario de OADS",
+    "OADS Username:",
+    placeholder="Your OADS username",
     key="username"
 )
 
 password = st.sidebar.text_input(
-    "Contraseña OADS:",
+    "OADS Password:",
     type="password",
-    placeholder="Tu contraseña de OADS",
+    placeholder="Your OADS password",
     key="password"
 )
 
@@ -108,10 +285,10 @@ baselines = ['Auto-detect', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI'
 all_baselines = {**aux_dict_L1, **aux_dict_L2}
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("## ⚙️ Configuración")
+st.sidebar.markdown("## ⚙️ Configuration")
 
 collection_name = st.sidebar.selectbox(
-    "Colección:",
+    "Collection:",
     list(collections.keys()),
     index=0,
     key="collection_select"
@@ -121,46 +298,46 @@ collection_id = collections[collection_name]
 # ============================================================================
 # MAIN CONTENT - TABS
 # ============================================================================
-tab1, tab2, tab3 = st.tabs(["📥 Descargar", "ℹ️ Información", "📊 Ayuda"])
+tab1, tab2, tab3 = st.tabs(["📥 Download", "ℹ️ Information", "📊 FAQ"])
 
 with tab1:
     # Create two columns for file upload
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### 📄 Archivo CSV")
+        st.markdown("### 📄 CSV File")
         uploaded_file = st.file_uploader(
-            "Selecciona tu archivo CSV con fechas y horas",
+            "Upload your CSV file with dates and times",
             type=['csv'],
-            help="El archivo debe contener columnas con fecha y hora. Se detectarán automáticamente."
+            help="The file must contain columns with date and time. They will be detected automatically."
         )
         
         # Show preview if file is uploaded
         if uploaded_file is not None:
             try:
                 df_preview = pd.read_csv(uploaded_file, nrows=5)
-                st.info(f"✅ Archivo cargado: **{uploaded_file.name}**")
-                st.markdown("**Vista previa (primeras 5 filas):**")
+                st.info(f"✅ File loaded: **{uploaded_file.name}**")
+                st.markdown("**Preview (first 5 rows):**")
                 st.dataframe(df_preview, use_container_width=True)
                 
                 # Get all column names for orbit selection
                 csv_columns = df_preview.columns.tolist()
             except Exception as e:
-                st.error(f"❌ Error al leer el archivo: {e}")
+                st.error(f"❌ Error reading file: {e}")
                 csv_columns = []
     
     with col2:
-        st.markdown("### 📦 Selección de Producto")
+        st.markdown("### 📦 Product Selection")
         
         category = st.selectbox(
-            "Categoría de Producto:",
+            "Product Category:",
             list(product_categories.keys()),
             key="category_select"
         )
         
         products_in_category = product_categories.get(category, [])
         selected_product = st.selectbox(
-            "Producto:",
+            "Product:",
             products_in_category,
             key="product_select"
         )
@@ -174,43 +351,43 @@ with tab1:
             "Baseline:",
             available_baselines,
             key="baseline_select",
-            help="Auto-detect seleccionará el baseline más común automáticamente"
+            help="Auto-detect will automatically select the most common baseline"
         )
     
     # Advanced options
-    with st.expander("⚙️ Opciones Avanzadas"):
+    with st.expander("⚙️ Advanced Options"):
         col_adv1, col_adv2 = st.columns(2)
         
         with col_adv1:
             if uploaded_file is not None and csv_columns:
                 orbit_column = st.selectbox(
-                    "Columna de Número de Órbita:",
-                    ['Ninguno'] + csv_columns,
-                    help="Selecciona si tu CSV tiene información de órbita"
+                    "Orbit Number Column:",
+                    ['None'] + csv_columns,
+                    help="Select if your CSV contains orbit information"
                 )
-                if orbit_column == 'Ninguno':
+                if orbit_column == 'None':
                     orbit_column = None
             else:
                 orbit_column = None
-                st.info("Carga un archivo CSV para ver las columnas disponibles")
+                st.info("Upload a CSV file to see available columns")
             
             override_files = st.checkbox(
-                "Sobrescribir archivos existentes",
+                "Override existing files",
                 value=False,
-                help="Si está activado, descargará los archivos nuevamente incluso si ya existen"
+                help="If enabled, will download files again even if they already exist"
             )
         
         with col_adv2:
             verbose_mode = st.checkbox(
-                "Modo detallado",
+                "Verbose output",
                 value=False,
-                help="Muestra información detallada del proceso"
+                help="Shows detailed information during processing"
             )
             
-            st.markdown("**Información de descargas:**")
+            st.markdown("**Download Information:**")
             st.info(f"""
-            📥 Los archivos se descargarán en una carpeta temporal.
-            Podrás descargarlos como ZIP después de completar.
+            📥 Files will be downloaded to a temporary folder.
+            You can download all files as ZIP after completion.
             """)
     
     # Validation and download button
@@ -219,24 +396,36 @@ with tab1:
     col_btn1, col_btn2 = st.columns([3, 1])
     
     with col_btn1:
-        if st.button("🚀 Iniciar Descarga", type="primary", use_container_width=True):
+        if st.button("🚀 Start Download", type="primary", use_container_width=True):
             # Validate inputs
             errors = []
             
             if not username.strip():
-                errors.append("❌ Usuario OADS requerido")
+                errors.append("❌ OADS username required")
             if not password.strip():
-                errors.append("❌ Contraseña OADS requerida")
+                errors.append("❌ OADS password required")
             if uploaded_file is None:
-                errors.append("❌ Archivo CSV requerido")
+                errors.append("❌ CSV file required")
             
             if errors:
                 st.error("\n".join(errors))
             else:
                 # Create a placeholder for logs
                 log_container = st.container(border=True)
-                status_placeholder = log_container.status("Inicializando descarga...", expanded=True)
+                status_placeholder = log_container.status("Initializing download...", expanded=True)
                 log_placeholder = status_placeholder.empty()
+                
+                # Add progress indicators
+                progress_col1, progress_col2 = st.columns(2)
+                with progress_col1:
+                    st.markdown("**Overall Progress**")
+                    progress_bar = st.progress(0)
+                    progress_text = st.empty()
+                
+                with progress_col2:
+                    st.markdown("**Files Progress**")
+                    files_progress_bar = st.progress(0)
+                    files_progress_text = st.empty()
                 
                 logs = []
                 
@@ -249,16 +438,20 @@ with tab1:
                             with open(csv_temp_path, 'wb') as f:
                                 f.write(uploaded_file.getbuffer())
                             
-                            logs.append(f"📄 Archivo CSV guardado")
+                            logs.append(f"📄 CSV file saved")
                             
                             # Create download directory
                             download_dir = os.path.join(temp_dir, 'downloads')
                             os.makedirs(download_dir, exist_ok=True)
                             
-                            logs.append(f"📁 Directorio de descarga preparado")
+                            logs.append(f"📁 Download directory prepared")
                             
                             # Create downloader instance
-                            logs.append(f"🔐 Conectando como: {username}")
+                            logs.append(f"🔐 Connecting as: {username}")
+                            
+                            # Update progress
+                            progress_bar.progress(10)
+                            progress_text.markdown("10% - Initializing...")
                             
                             baseline_filter = baseline if baseline != 'Auto-detect' else None
                             
@@ -270,17 +463,60 @@ with tab1:
                                 verbose=verbose_mode
                             )
                             
-                            logs.append(f"✅ Descargador inicializado")
-                            logs.append(f"📦 Producto: {selected_product}")
+                            logs.append(f"✅ Downloader initialized")
+                            logs.append(f"📦 Product: {selected_product}")
                             logs.append(f"🎯 Baseline: {baseline}")
-                            logs.append(f"🚀 Iniciando descarga de {uploaded_file.name}...")
+                            logs.append(f"🚀 Starting download from {uploaded_file.name}...")
+                            
+                            # Update progress
+                            progress_bar.progress(20)
+                            progress_text.markdown("20% - Reading CSV file...")
                             
                             # Update log display
                             with log_placeholder.container():
                                 for log in logs:
                                     st.write(log)
                             
-                            # Run download
+                            # Read CSV to count entries
+                            try:
+                                df_check = pd.read_csv(csv_temp_path)
+                                total_entries = len(df_check)
+                            except:
+                                total_entries = 1
+                            
+                            # Update progress
+                            progress_bar.progress(30)
+                            progress_text.markdown(f"30% - Processing {total_entries} entries...")
+                            
+                            # Create a custom callback to update progress
+                            processed_count = 0
+                            downloaded_count = 0
+                            
+                            class ProgressTracker:
+                                def __init__(self):
+                                    self.processed = 0
+                                    self.downloaded = 0
+                                    self.total = total_entries
+                                
+                                def update(self, processed, downloaded):
+                                    self.processed = processed
+                                    self.downloaded = downloaded
+                                    
+                                    if self.total > 0:
+                                        overall_progress = min(30 + int((self.processed / self.total) * 60), 95)
+                                        progress_bar.progress(overall_progress)
+                                        progress_text.markdown(f"{overall_progress}% - Processing entry {self.processed}/{self.total}")
+                                        
+                                        files_progress = min(int((self.downloaded / (self.total * 2)) * 100), 100) if self.total > 0 else 0
+                                        files_progress_bar.progress(files_progress)
+                                        files_progress_text.markdown(f"{files_progress}% - {self.downloaded} files")
+                            
+                            tracker = ProgressTracker()
+                            
+                            # Run download with progress updates
+                            progress_bar.progress(35)
+                            progress_text.markdown("35% - Connecting to OADS...")
+                            
                             summary = downloader.download_from_csv(
                                 csv_file_path=csv_temp_path,
                                 products=[selected_product],
@@ -289,21 +525,28 @@ with tab1:
                                 override=override_files
                             )
                             
-                            logs.append(f"🎉 Descarga completada!")
+                            # Update final progress
+                            progress_bar.progress(100)
+                            progress_text.markdown("✅ 100% - Download completed!")
+                            
+                            files_progress_bar.progress(100)
+                            files_progress_text.markdown(f"✅ {len(summary['downloaded_files'])} files")
+                            
+                            logs.append(f"🎉 Download completed!")
                             logs.append(f"---")
-                            logs.append(f"📊 **Resumen:**")
-                            logs.append(f"  • Entradas procesadas: {summary['processed_entries']}/{summary['total_entries']}")
-                            logs.append(f"  • Archivos descargados: {len(summary['downloaded_files'])}")
-                            logs.append(f"  • Archivos omitidos: {len(summary['skipped_files'])}")
-                            logs.append(f"  • Archivos fallidos: {len(summary['failed_files'])}")
-                            logs.append(f"  • Tiempo total: {summary['execution_time']}")
+                            logs.append(f"📊 **Summary:**")
+                            logs.append(f"  • Entries processed: {summary['processed_entries']}/{summary['total_entries']}")
+                            logs.append(f"  • Files downloaded: {len(summary['downloaded_files'])}")
+                            logs.append(f"  • Files skipped: {len(summary['skipped_files'])}")
+                            logs.append(f"  • Files failed: {len(summary['failed_files'])}")
+                            logs.append(f"  • Total time: {summary['execution_time']}")
                             
                             # Update log display
                             with log_placeholder.container():
                                 for log in logs:
                                     st.write(log)
                             
-                            status_placeholder.update(label="✅ Descarga completada", state="complete")
+                            status_placeholder.update(label="✅ Download completed", state="complete")
                             
                             # Show download button if files were downloaded
                             if os.listdir(download_dir):
@@ -319,7 +562,7 @@ with tab1:
                                 
                                 with open(zip_path, 'rb') as f:
                                     st.download_button(
-                                        label="📥 Descargar archivos (ZIP)",
+                                        label="📥 Download Files (ZIP)",
                                         data=f.read(),
                                         file_name=f"earthcare_downloads_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
                                         mime="application/zip",
@@ -327,11 +570,11 @@ with tab1:
                                     )
                                 
                                 # Show summary table
-                                st.markdown("### 📋 Resumen Detallado")
+                                st.markdown("### 📋 Detailed Summary")
                                 
                                 summary_data = {
-                                    'Métrica': ['Entradas procesadas', 'Archivos descargados', 'Archivos omitidos', 'Archivos fallidos', 'Tiempo total'],
-                                    'Valor': [
+                                    'Metric': ['Entries processed', 'Files downloaded', 'Files skipped', 'Files failed', 'Total time'],
+                                    'Value': [
                                         f"{summary['processed_entries']}/{summary['total_entries']}",
                                         len(summary['downloaded_files']),
                                         len(summary['skipped_files']),
@@ -341,118 +584,121 @@ with tab1:
                                 }
                                 st.dataframe(pd.DataFrame(summary_data), use_container_width=True, hide_index=True)
                             else:
-                                st.warning("⚠️ No se descargaron archivos. Verifica los parámetros de búsqueda.")
+                                st.warning("⚠️ No files were downloaded. Check your search parameters.")
                 
                 except Exception as e:
-                    status_placeholder.update(label="❌ Error en descarga", state="error")
+                    status_placeholder.update(label="❌ Download error", state="error")
+                    progress_bar.progress(0)
+                    progress_text.markdown("❌ Download failed")
+                    
                     logs.append(f"❌ Error: {str(e)}")
                     
                     with log_placeholder.container():
                         for log in logs:
                             st.write(log)
                     
-                    st.error(f"**Error durante la descarga:**\n\n{str(e)}")
+                    st.error(f"**Error during download:**\n\n{str(e)}")
 
 with tab2:
     st.markdown("""
-    ### 📋 Información General
+    ### 📋 General Information
     
-    **EarthCARE Data Downloader** te permite descargar productos de datos de EarthCARE
-    desde el catálogo OADS (ESA Open Access Data Service) de forma fácil y automática.
+    **EarthCARE Data Downloader** allows you to easily download EarthCARE data products
+    from the OADS catalog (ESA Open Access Data Service) automatically.
     
-    ### 🎯 Características
+    ### 🎯 Features
     
-    - ✅ **Descarga automática** desde OADS
-    - 🔄 **Detección automática** de ficheros CSV (separador, fecha, hora)
-    - 📦 **Múltiples colecciones** disponibles
-    - 🎯 **Filtrado por baseline**
-    - ♻️ **Opción de sobrescribir** archivos existentes
-    - 📥 **Descarga en ZIP** de todos los archivos
+    - ✅ **Automatic downloads** from OADS
+    - 🔄 **Automatic detection** of CSV files (separator, date, time)
+    - 📦 **Multiple collections** available
+    - 🎯 **Baseline filtering**
+    - ♻️ **Override option** for existing files
+    - 📥 **ZIP download** of all files
     
-    ### 📚 Guía de uso
+    ### 📚 User Guide
     
-    1. **Credenciales**: Ingresa tu usuario y contraseña OADS
-    2. **Archivo CSV**: Carga tu archivo con fechas y horas
-    3. **Producto**: Selecciona la categoría y el producto específico
-    4. **Inicio**: Haz clic en "Iniciar Descarga"
-    5. **Resultados**: Descarga los archivos en ZIP
+    1. **Credentials**: Enter your OADS username and password
+    2. **CSV File**: Upload your file with dates and times
+    3. **Product**: Select the category and specific product
+    4. **Start**: Click "Start Download"
+    5. **Results**: Download files as ZIP
     
-    ### ❓ Requisitos del archivo CSV
+    ### ❓ CSV File Requirements
     
-    Tu archivo CSV debe contener:
-    - Una columna con **fechas** (formato: yyyy-mm-dd)
-    - Una columna con **horas** (formato: hh:mm:ss.sss)
+    Your CSV file must contain:
+    - A **date** column (format: yyyy-mm-dd)
+    - A **time** column (format: hh:mm:ss.sss)
     
-    El sistema detectará automáticamente estas columnas buscando:
-    - Nombres como: "date", "fecha", "day", etc.
-    - Nombres como: "time", "hora", "hh:mm:ss.sss", etc.
+    The system will automatically detect these columns by looking for:
+    - Names like: "date", "fecha", "day", etc.
+    - Names like: "time", "hora", "hh:mm:ss.sss", etc.
     
-    Ejemplo de CSV válido:
+    Example of valid CSV:
     ```
-    fecha,hora,extra
-    2024-01-15,12:30:45.123,datos
-    2024-01-16,14:15:30.456,datos
+    date,time,extra
+    2024-01-15,12:30:45.123,data
+    2024-01-16,14:15:30.456,data
     ```
     
-    ### 🔗 Enlaces útiles
+    ### 🔗 Useful Links
     
     - [OADS Portal](https://eocat.esa.int/)
     - [EarthCARE Mission](https://www.esa.int/Applications/Observing_the_Earth/EarthCARE)
-    - [Documentación EarthCARE](https://www.esa.int/Applications/Observing_the_Earth/EarthCARE)
+    - [EarthCARE Documentation](https://www.esa.int/Applications/Observing_the_Earth/EarthCARE)
     """)
 
 with tab3:
     st.markdown("""
-    ### ❓ Preguntas Frecuentes
+    ### ❓ Frequently Asked Questions
     
-    #### ¿Cuáles son los requisitos del archivo CSV?
-    El archivo debe tener:
-    - Una columna con fechas en formato YYYY-MM-DD
-    - Una columna con horas en formato HH:MM:SS.SSS
-    - Cualquier separador (coma, punto y coma, tabulación) se detecta automáticamente
+    #### What are the CSV file requirements?
+    The file must have:
+    - A date column in YYYY-MM-DD format
+    - A time column in HH:MM:SS.SSS format
+    - Any separator (comma, semicolon, tab) is automatically detected
     
-    #### ¿Necesito instalar algo?
-    No, todo funciona en el navegador. Solo necesitas:
-    - Credenciales de OADS
-    - Tu archivo CSV
-    - Conexión a internet
+    #### Do I need to install anything?
+    No, everything works in the browser. You only need:
+    - OADS credentials
+    - Your CSV file
+    - Internet connection
     
-    #### ¿Cuánto tiempo tarda una descarga?
-    Depende de:
-    - Número de entradas en tu CSV
-    - Disponibilidad de productos
-    - Tamaño de los archivos
+    #### How long does a download take?
+    It depends on:
+    - Number of entries in your CSV
+    - Product availability
+    - File sizes
     
-    Típicamente entre minutos a horas.
+    Typically takes between minutes to hours.
     
-    #### ¿Dónde puedo obtener credenciales OADS?
-    Regístrate en [OADS](https://eocat.esa.int/) con tu cuenta ESA.
+    #### Where can I get OADS credentials?
+    Register at [OADS](https://eocat.esa.int/) with your ESA account.
     
-    #### ¿Qué hago si falla una descarga?
-    - Verifica tus credenciales
-    - Comprueba el formato de tu CSV
-    - Intenta con un solo producto
-    - Verifica tu conexión a internet
+    #### What if a download fails?
+    - Verify your credentials
+    - Check your CSV format
+    - Try with a single product
+    - Check your internet connection
     
-    #### ¿Puedo descargar múltiples productos?
-    Por ahora se descarga uno a la vez. Si necesitas múltiples:
-    - Ejecuta la app varias veces con diferentes productos
-    - O usa la aplicación de escritorio
+    #### Can I download multiple products?
+    Currently one at a time. If you need multiple:
+    - Run the app several times with different products
+    - Or use the desktop application
     
-    #### ¿Qué pasa con mi contraseña?
-    - Solo se envía a OADS para autenticación
-    - No se almacena en el servidor
-    - La sesión es anónima
+    #### What happens to my password?
+    - Only sent to OADS for authentication
+    - Not stored on the server
+    - Session is anonymous
     
-    #### ¿Hay límite de descargas?
-    Depende de tu cuenta OADS. Consulta sus términos de servicio.
+    #### Is there a download limit?
+    Depends on your OADS account. Check their terms of service.
     """)
 
 # Footer
 st.markdown("---")
 st.markdown("""
-<div style='text-align: center; color: #666; font-size: 0.85em;'>
-    <p>EarthCARE Data Downloader • Powered by <a href='https://streamlit.io/'>Streamlit</a></p>
-    <p>Para problemas o sugerencias, contacta con el equipo de desarrollo.</p>
+<div style='text-align: center; color: #a0aec0; font-size: 0.85em;'>
+    <p>EarthCARE Data Downloader • Powered by <a href='https://streamlit.io/' style='color: #00d9ff;'>Streamlit</a></p>
+    <p>For issues or suggestions, contact the development team.</p>
 </div>
 """, unsafe_allow_html=True)

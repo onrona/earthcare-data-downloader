@@ -1,8 +1,9 @@
 [theme]
-primaryColor = "#0066CC"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F2F6"
-textColor = "#262730"
+# Dark theme configuration
+primaryColor = "#00d9ff"
+backgroundColor = "#0f1419"
+secondaryBackgroundColor = "#1a2332"
+textColor = "#e0e7ff"
 font = "sans serif"
 
 [client]
@@ -19,3 +20,7 @@ level = "info"
 
 [browser]
 gatherUsageStats = false
+
+
+
+
