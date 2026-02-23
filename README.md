@@ -19,7 +19,21 @@ A comprehensive Python application for downloading EarthCARE satellite products 
 
 ## 🚀 Quick Start
 
-### Installation
+### 🌐 Web Version (NEW!)
+
+**Try the web version without installing anything!** 
+
+Access the Streamlit web app for easy downloads from any device:
+- 🔗 **[Live Demo](https://share.streamlit.io)** (Deploy your own for free)
+- 📚 **[Streamlit Setup Guide](README_STREAMLIT.md)**
+
+**Quick Deploy to Streamlit Cloud (Free):**
+1. Push this repo to GitHub
+2. Go to [share.streamlit.io](https://share.streamlit.io)
+3. Connect your repo and select `app_streamlit.py`
+4. Done! Your app is live in seconds
+
+### Installation (Desktop)
 
 ```bash
 # Clone the repository
@@ -30,7 +44,7 @@ cd earthcare_downloader
 pip install -r requirements.txt
 ```
 
-### GUI Usage
+### GUI Usage (Desktop)
 
 ```bash
 python earthcare_downloader_gui.py
