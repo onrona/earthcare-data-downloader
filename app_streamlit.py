@@ -221,7 +221,7 @@ dark_css = """
 st.markdown(dark_css, unsafe_allow_html=True)
 
 # Title and description
-st.markdown("# 🌍 EarthCARE Data Downloader")
+st.markdown("# EarthCARE Data Downloader")
 st.markdown("""
 Download EarthCARE data products from OADS easily and quickly.
 """)
@@ -298,14 +298,14 @@ collection_id = collections[collection_name]
 # ============================================================================
 # MAIN CONTENT - TABS
 # ============================================================================
-tab1, tab2, tab3 = st.tabs(["📥 Download", "ℹ️ Information", "📊 FAQ"])
+tab1, tab2, tab3 = st.tabs(["Download", "Information", "FAQ"])
 
 with tab1:
     # Create two columns for file upload
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### 📄 CSV File")
+        st.markdown("### CSV File")
         uploaded_file = st.file_uploader(
             "Upload your CSV file with dates and times",
             type=['csv'],
@@ -316,7 +316,7 @@ with tab1:
         if uploaded_file is not None:
             try:
                 df_preview = pd.read_csv(uploaded_file, nrows=5)
-                st.info(f"✅ File loaded: **{uploaded_file.name}**")
+                st.info(f"File loaded: **{uploaded_file.name}**")
                 st.markdown("**Preview (first 5 rows):**")
                 st.dataframe(df_preview, use_container_width=True)
                 
@@ -327,7 +327,7 @@ with tab1:
                 csv_columns = []
     
     with col2:
-        st.markdown("### 📦 Product Selection")
+        st.markdown("### Product Selection")
         
         category = st.selectbox(
             "Product Category:",
@@ -396,7 +396,7 @@ with tab1:
     col_btn1, col_btn2 = st.columns([3, 1])
     
     with col_btn1:
-        if st.button("🚀 Start Download", type="primary", use_container_width=True):
+        if st.button("START DOWNLOAD", type="primary", use_container_width=True):
             # Validate inputs
             errors = []
             
@@ -415,17 +415,20 @@ with tab1:
                 status_placeholder = log_container.status("Initializing download...", expanded=True)
                 log_placeholder = status_placeholder.empty()
                 
-                # Add progress indicators
-                progress_col1, progress_col2 = st.columns(2)
-                with progress_col1:
-                    st.markdown("**Overall Progress**")
+                # Add progress indicator
+                progress_col = st.columns(1)[0]
+                with progress_col:
+                    st.markdown("**Download Progress**")
                     progress_bar = st.progress(0)
                     progress_text = st.empty()
-                
-                with progress_col2:
-                    st.markdown("**Files Progress**")
-                    files_progress_bar = st.progress(0)
-                    files_progress_text = st.empty()
+                # stop flag
+                if 'cancel' not in st.session_state:
+                    st.session_state.cancel = False
+                if st.button("⏹️ Stop download", key="stop_button"):
+                    st.session_state.cancel = True
+
+                def stop_check():
+                    return st.session_state.get('cancel', False)
                 
                 logs = []
                 
@@ -438,20 +441,12 @@ with tab1:
                             with open(csv_temp_path, 'wb') as f:
                                 f.write(uploaded_file.getbuffer())
                             
-                            logs.append(f"📄 CSV file saved")
-                            
                             # Create download directory
                             download_dir = os.path.join(temp_dir, 'downloads')
                             os.makedirs(download_dir, exist_ok=True)
                             
-                            logs.append(f"📁 Download directory prepared")
-                            
                             # Create downloader instance
-                            logs.append(f"🔐 Connecting as: {username}")
-                            
-                            # Update progress
-                            progress_bar.progress(10)
-                            progress_text.markdown("10% - Initializing...")
+                            logs.append(f"Connecting as: {username}")
                             
                             baseline_filter = baseline if baseline != 'Auto-detect' else None
                             
@@ -462,15 +457,9 @@ with tab1:
                                 baseline=baseline_filter,
                                 verbose=verbose_mode
                             )
-                            
-                            logs.append(f"✅ Downloader initialized")
-                            logs.append(f"📦 Product: {selected_product}")
-                            logs.append(f"🎯 Baseline: {baseline}")
-                            logs.append(f"🚀 Starting download from {uploaded_file.name}...")
-                            
-                            # Update progress
-                            progress_bar.progress(20)
-                            progress_text.markdown("20% - Reading CSV file...")
+                    
+                            logs.append(f"Collection: {collection_id}")
+                            logs.append(f"Product: {selected_product} -----|-----   Baseline: {baseline}")
                             
                             # Update log display
                             with log_placeholder.container():
@@ -484,14 +473,7 @@ with tab1:
                             except:
                                 total_entries = 1
                             
-                            # Update progress
-                            progress_bar.progress(30)
-                            progress_text.markdown(f"30% - Processing {total_entries} entries...")
-                            
-                            # Create a custom callback to update progress
-                            processed_count = 0
-                            downloaded_count = 0
-                            
+                            # Progress tracker used by the downloader callback
                             class ProgressTracker:
                                 def __init__(self):
                                     self.processed = 0
@@ -499,47 +481,42 @@ with tab1:
                                     self.total = total_entries
                                 
                                 def update(self, processed, downloaded):
+                                    # called by download_from_csv for every file and entry
                                     self.processed = processed
                                     self.downloaded = downloaded
                                     
                                     if self.total > 0:
-                                        overall_progress = min(30 + int((self.processed / self.total) * 60), 95)
-                                        progress_bar.progress(overall_progress)
-                                        progress_text.markdown(f"{overall_progress}% - Processing entry {self.processed}/{self.total}")
-                                        
-                                        files_progress = min(int((self.downloaded / (self.total * 2)) * 100), 100) if self.total > 0 else 0
-                                        files_progress_bar.progress(files_progress)
-                                        files_progress_text.markdown(f"{files_progress}% - {self.downloaded} files")
+                                        # Calculate percentage based on downloaded files
+                                        files_pct = min(int((self.downloaded / self.total) * 100), 100)
+                                        progress_bar.progress(files_pct / 100.0)
+                                        progress_text.markdown(f"{files_pct}% - {self.downloaded}//{self.total} files")
+                                    if stop_check():
+                                        progress_text.markdown("⚠️ Cancelled")
                             
                             tracker = ProgressTracker()
                             
-                            # Run download with progress updates
-                            progress_bar.progress(35)
-                            progress_text.markdown("35% - Connecting to OADS...")
+                            # Update progress
+                            progress_bar.progress(0)
+                            progress_text.markdown("0% - Connecting to OADS...")
                             
                             summary = downloader.download_from_csv(
                                 csv_file_path=csv_temp_path,
                                 products=[selected_product],
                                 download_directory=download_dir,
                                 orbit_column=orbit_column,
-                                override=override_files
+                                override=override_files,
+                                progress_callback=tracker.update,
+                                stop_callback=stop_check
                             )
                             
                             # Update final progress
-                            progress_bar.progress(100)
-                            progress_text.markdown("✅ 100% - Download completed!")
-                            
-                            files_progress_bar.progress(100)
-                            files_progress_text.markdown(f"✅ {len(summary['downloaded_files'])} files")
-                            
-                            logs.append(f"🎉 Download completed!")
-                            logs.append(f"---")
-                            logs.append(f"📊 **Summary:**")
-                            logs.append(f"  • Entries processed: {summary['processed_entries']}/{summary['total_entries']}")
-                            logs.append(f"  • Files downloaded: {len(summary['downloaded_files'])}")
-                            logs.append(f"  • Files skipped: {len(summary['skipped_files'])}")
-                            logs.append(f"  • Files failed: {len(summary['failed_files'])}")
-                            logs.append(f"  • Total time: {summary['execution_time']}")
+                            if stop_check():
+                                progress_text.markdown(f"⚠️ Cancelled at {len(summary['downloaded_files'])}/{total_entries} files")
+                                status_placeholder.update(label="⚠️ Download cancelled", state="warning")
+                            else:
+                                progress_bar.progress(1.0)
+                                progress_text.markdown(f"✅ 100% - {len(summary['downloaded_files'])}/{total_entries} files")
+                                logs.append(f"🎉 Download completed!")
                             
                             # Update log display
                             with log_placeholder.container():
@@ -570,7 +547,7 @@ with tab1:
                                     )
                                 
                                 # Show summary table
-                                st.markdown("### 📋 Detailed Summary")
+                                st.markdown("### Detailed Summary")
                                 
                                 summary_data = {
                                     'Metric': ['Entries processed', 'Files downloaded', 'Files skipped', 'Files failed', 'Total time'],
@@ -606,16 +583,16 @@ with tab2:
     **EarthCARE Data Downloader** allows you to easily download EarthCARE data products
     from the OADS catalog (ESA Open Access Data Service) automatically.
     
-    ### 🎯 Features
+    ### Features
     
-    - ✅ **Automatic downloads** from OADS
-    - 🔄 **Automatic detection** of CSV files (separator, date, time)
-    - 📦 **Multiple collections** available
-    - 🎯 **Baseline filtering**
-    - ♻️ **Override option** for existing files
-    - 📥 **ZIP download** of all files
+    - **Automatic downloads** from OADS
+    - **Automatic detection** of CSV files (separator, date, time)
+    - **Multiple collections** available
+    - **Baseline filtering**
+    - **Override option** for existing files
+    - **ZIP download** of all files
     
-    ### 📚 User Guide
+    ### User Guide
     
     1. **Credentials**: Enter your OADS username and password
     2. **CSV File**: Upload your file with dates and times
@@ -623,7 +600,7 @@ with tab2:
     4. **Start**: Click "Start Download"
     5. **Results**: Download files as ZIP
     
-    ### ❓ CSV File Requirements
+    ### CSV File Requirements
     
     Your CSV file must contain:
     - A **date** column (format: yyyy-mm-dd)
@@ -649,7 +626,7 @@ with tab2:
 
 with tab3:
     st.markdown("""
-    ### ❓ Frequently Asked Questions
+    ### Frequently Asked Questions
     
     #### What are the CSV file requirements?
     The file must have:

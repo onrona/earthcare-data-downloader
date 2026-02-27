@@ -348,8 +348,29 @@ class EarthCareDownloader:
         self._log(f"API request: {template}")
         return template
 
-    def download_products(self, dataframe, download_directory, is_override=False, progress_bar=None):
-        """Download products from the dataframe."""
+    def download_products(self, dataframe, download_directory, is_override=False, progress_bar=None, progress_callback=None, stop_callback=None):
+        """Download products from the dataframe.
+
+        Parameters
+        ----------
+        dataframe : pandas.DataFrame
+            Dataframe containing the products to download (must include a
+            ``server`` column).  The method groups by server internally.
+        download_directory : str
+            Directory where files will be written.
+        is_override : bool, optional
+            If True existing files are overwritten (default is False).
+        progress_bar : object, optional
+            Object with an ``update(n)`` method to count processed files.  The
+            downloader will call ``progress_bar.update(1)`` for every file
+            that is either downloaded, skipped, or failed.  This is the same
+            argument that ``download_from_csv`` accepts; a ``tqdm`` instance is
+            used by default when run from the command line.
+        progress_callback : callable, optional
+            Function that will be invoked after each file is handled.  It
+            takes no arguments; callers can wrap it to maintain their own
+            counters (see ``download_from_csv`` for an example).
+        """
         downloaded_files = []
         skipped_files = []
         failed_files = []
@@ -414,6 +435,10 @@ class EarthCareDownloader:
             max_retries = 3
 
             for index, row in df_group.iterrows():
+                # check for cancellation request before starting next file
+                if stop_callback and stop_callback():
+                    self._log("Download cancelled by user", 'warning')
+                    return {'downloaded': downloaded_files, 'skipped': skipped_files, 'failed': failed_files}
                 # extracting the filename from the download link
                 file_name = (row['atom:link[rel="enclosure"]']).split("/")[-1]
                 file_path = os.path.join(download_directory, file_name)
@@ -441,6 +466,8 @@ class EarthCareDownloader:
                         skipped_files.append(file_name)
                         if progress_bar:
                             progress_bar.update(1)
+                        if progress_callback:
+                            progress_callback()
                         continue
 
                 # defining the download url
@@ -484,6 +511,8 @@ class EarthCareDownloader:
                 
                 if progress_bar:
                     progress_bar.update(1)
+                if progress_callback:
+                    progress_callback()
 
             # logout
             try:
@@ -613,7 +642,8 @@ class EarthCareDownloader:
         return filtered_df.drop('baseline', axis=1), selected_baseline
 
     def download_from_csv(self, csv_file_path, products, download_directory, orbit_column=None, 
-                         override=False, radius_search=None, bounding_box=None):
+                         override=False, radius_search=None, bounding_box=None,
+                         progress_bar=None, progress_callback=None, stop_callback=None):
         """
         Download EarthCARE products based on a CSV file with dates and times.
         
@@ -625,6 +655,13 @@ class EarthCareDownloader:
         - override: bool, whether to override existing files
         - radius_search: tuple, optional (radius_m, latitude, longitude) for spatial search
         - bounding_box: tuple, optional (latS, lonW, latN, lonE) for bounding box search
+        - progress_bar: optional object with an ``update(n)`` method; if provided it
+          will be used instead of creating a ``tqdm`` bar. Useful for integrating
+          with UI frameworks.
+        - progress_callback: optional callable(proc_entries, downloaded_files)
+          that will be invoked after each file is handled and after each entry is
+          processed. Receives two integers (processed entries, downloaded files)
+          which allows external code to update progress indicators.
         
         Returns:
         - dict with execution summary
@@ -676,13 +713,27 @@ class EarthCareDownloader:
             
             summary['total_entries'] = len(df)
             
-            # Progress bar setup
-            if not self.verbose:
-                print(f"Processing {len(df)} entries...")
-                pbar = tqdm(total=len(df), desc="Processing entries", unit="entry")
+            # Counters for external callback
+            processed_entries = 0
+            downloaded_count = 0
+
+            # Progress bar setup: honor externally provided bar when given
+            if progress_bar is not None:
+                pbar = progress_bar
             else:
-                pbar = None
+                if not self.verbose:
+                    print(f"Processing {len(df)} entries...")
+                    pbar = tqdm(total=len(df), desc="Processing entries", unit="entry")
+                else:
+                    pbar = None
             
+            # helper callback used by download_products to increment file count
+            def _file_cb():
+                nonlocal downloaded_count, processed_entries
+                downloaded_count += 1
+                if progress_callback:
+                    progress_callback(processed_entries, downloaded_count)
+
             try:
                 for index, row in df.iterrows():
                     try:
@@ -738,7 +789,14 @@ class EarthCareDownloader:
                         self._log(f"Found {len(dataframe)} products for {datetime_str} (baseline: {selected_baseline})")
                         
                         # Download products
-                        download_result = self.download_products(dataframe, download_directory, override, pbar)
+                        download_result = self.download_products(
+                            dataframe,
+                            download_directory,
+                            override,
+                            pbar,
+                            progress_callback=_file_cb,
+                            stop_callback=stop_callback
+                        )
                         
                         # Update summary
                         summary['downloaded_files'].extend(download_result['downloaded'])
@@ -746,6 +804,14 @@ class EarthCareDownloader:
                         summary['failed_files'].extend(download_result['failed'])
                         
                         summary['processed_entries'] += 1
+                        processed_entries += 1
+                        # send an update after the entry finishes so UI can reflect
+                        if progress_callback:
+                            progress_callback(processed_entries, downloaded_count)
+                        # check cancellation at entry level
+                        if stop_callback and stop_callback():
+                            self._log("Download cancelled by user", 'warning')
+                            break
                         
                     except Exception as e:
                         error_msg = f"Error processing entry {index + 1} ({datetime_str}): {str(e)}"

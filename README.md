@@ -64,12 +64,17 @@ downloader = EarthCareDownloader(
     verbose=True
 )
 
-# Download products from CSV
+# Download products from CSV (you can optionally supply callbacks):
+#   * `progress_callback(entries, files)` called each time a new file is
+#     processed; useful for updating a GUI.
+#   * `stop_callback()` must return True to cancel the remaining downloads.
 summary = downloader.download_from_csv(
     csv_file_path="path/to/your/data.csv",
     products=['ATL_NOM_1B', 'MSI_NOM_1B'],
     download_directory="./downloads",
-    override=False
+    override=False,
+    # progress_callback=lambda entries, files: print(f"{entries} entries, {files} files"),
+    # stop_callback=lambda: False  # return True to abort early
 )
 ```
 

@@ -145,6 +145,63 @@ class TestEarthCareDownloader(unittest.TestCase):
         self.assertEqual(len(self.downloader.execution_log), initial_log_count + 1)
         self.assertIn("Test message", self.downloader.execution_log[-1])
 
+    def test_progress_callback_invoked(self):
+        """Ensure progress_callback receives updates during CSV processing."""
+        # create temporary CSV with two rows
+        import tempfile
+        import pandas as pd
+        df = pd.DataFrame({
+            'date': ['2024-01-01', '2024-01-02'],
+            'time': ['12:00:00', '13:00:00']
+        })
+        tmpfile = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
+        df.to_csv(tmpfile.name, index=False)
+        tmpfile.close()
+
+        # stub the search and download methods so we don't hit the network
+        def fake_get_product_list(template, **kwargs):
+            # return a minimal dataframe with required columns
+            return pd.DataFrame([{
+                'server': 'test.server',
+                'atom:link[rel="enclosure"]': 'http://example.com/file.zip'
+            }])
+
+        def fake_download_products(dataframe, download_directory, is_override=False, progress_bar=None, progress_callback=None):
+            # simulate two downloads per call
+            for _ in range(2):
+                if progress_bar:
+                    progress_bar.update(1)
+                if progress_callback:
+                    progress_callback()
+            return {'downloaded': ['f1', 'f2'], 'skipped': [], 'failed': []}
+
+        # apply patches
+        self.downloader.get_product_list = fake_get_product_list
+        self.downloader.download_products = fake_download_products
+
+        callback_records = []
+        def cb(proc, files):
+            callback_records.append((proc, files))
+
+        summary = self.downloader.download_from_csv(
+            csv_file_path=tmpfile.name,
+            products=['ATL_NOM_1B'],
+            download_directory=tempfile.gettempdir(),
+            override=False,
+            progress_callback=cb,
+            stop_callback=lambda: len(callback_records) >= 1
+        )
+
+        # download should have been cancelled after first entry (2 files)
+        self.assertEqual(summary['processed_entries'], 1)
+        self.assertEqual(len(summary['downloaded_files']), 2)
+        # callback should have been called and final record reflects the partial work
+        self.assertTrue(callback_records)
+        # last callback will report processed=1, files=2
+        self.assertEqual(callback_records[-1], (1, 2))
+
+        os.unlink(tmpfile.name)
+
 
 class TestGUIImports(unittest.TestCase):
     """Test GUI imports (may fail on headless systems)."""

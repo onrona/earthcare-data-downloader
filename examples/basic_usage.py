@@ -42,13 +42,18 @@ def main():
     
     print(f"Starting download of {products[0]} products...")
     
-    # Perform download
+    # Perform download. You can optionally provide two callbacks:
+    #   * progress_callback(entries, files) for status updates
+    #   * stop_callback() which should return True to abort the process
+    #     (e.g. hooked to a GUI "Stop" button).
+    # In CLI usage the progress callback could just print information.
     try:
         summary = downloader.download_from_csv(
             csv_file_path=csv_file,
             products=products,
             download_directory=str(download_dir),
-            override=False  # Skip already downloaded files
+            override=False,  # Skip already downloaded files
+            # progress_callback=lambda e, f: print(f"Entry {e}, files {f}")
         )
         
         print("\n=== Download Summary ===")
