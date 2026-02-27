@@ -25,5 +25,3 @@ tqdm>=4.66.0
 # Optional: For better performance and error handling
 chardet>=5.0.0
 
-# locally install package so Streamlit Cloud uses current code
--e .
