@@ -10,6 +10,11 @@ Description:
     Allows users to download EarthCARE products through a modern web interface.
 """
 
+import sys, os
+# make sure local package directory is first on path; prevents older PyPI
+# version from being imported when deployed to Streamlit Cloud.
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
 import streamlit as st
 import pandas as pd
 import os
@@ -459,7 +464,7 @@ with tab1:
                             )
                     
                             logs.append(f"Collection: {collection_id}")
-                            logs.append(f"Product: {selected_product} -----|-----   Baseline: {baseline}")
+                            logs.append(f"Product: {selected_product} | Baseline: {baseline}")
                             
                             # Update log display
                             with log_placeholder.container():
@@ -489,9 +494,9 @@ with tab1:
                                         # Calculate percentage based on downloaded files
                                         files_pct = min(int((self.downloaded / self.total) * 100), 100)
                                         progress_bar.progress(files_pct / 100.0)
-                                        progress_text.markdown(f"{files_pct}% - {self.downloaded}//{self.total} files")
+                                        progress_text.markdown(f"{files_pct}% - {self.downloaded}/{self.total} files")
                                     if stop_check():
-                                        progress_text.markdown("⚠️ Cancelled")
+                                        progress_text.markdown("Cancelled")
                             
                             tracker = ProgressTracker()
                             
